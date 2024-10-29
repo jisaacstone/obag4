@@ -1,0 +1,22 @@
+{
+  "name": "obag",
+  "version": "1.0.0",
+  "description": "obag 4 tool",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node_modules/vite/bin/vite.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "ol": "^10.2.1",
+    "vanjs-core": "^1.5.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vite-tsconfig-paths": "^5.0.1"
+  }
+}
