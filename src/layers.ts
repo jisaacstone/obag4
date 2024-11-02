@@ -2,28 +2,21 @@ import EsriJSON from 'ol/format/EsriJSON.js';
 import GeoJSON from 'ol/format/GeoJSON.js';
 import ImageTile from 'ol/source/ImageTile.js';
 import VectorSource from 'ol/source/Vector.js';
-import {Fill, Stroke, Style} from 'ol/style.js';
-import {Tile as TileLayer, Vector as VectorLayer} from 'ol/layer.js';
-import {createXYZ} from 'ol/tilegrid.js';
-import {tile as tileStrategy} from 'ol/loadingstrategy.js';
+import Geometry from 'ol/geom/Geometry.js';
+import WKT from 'ol/format/WKT.js';
+import { Fill, Stroke, Style } from 'ol/style.js';
+import { Tile as TileLayer, Vector as VectorLayer} from 'ol/layer.js';
+import { createXYZ } from 'ol/tilegrid.js';
+import { tile as tileStrategy } from 'ol/loadingstrategy.js';
 import { Extent } from 'ol/extent.js';
 import Feature from 'ol/Feature.js';
 import Projection from 'ol/proj/Projection.js';
 
 const fillColors: {[index: string]: number[]} = {
-  'Lost To Sea Since 1965': [0, 0, 0, 1],
-  'Urban/Built-up': [104, 104, 104, 1],
-  'Shacks': [115, 76, 0, 1],
-  'Industry': [230, 0, 0, 1],
-  'Wasteland': [230, 0, 0, 1],
-  'Caravans': [0, 112, 255, 0.5],
-  'Defence': [230, 152, 0, 0.5],
-  'Transport': [230, 152, 0, 1],
-  'Open Countryside': [255, 255, 115, 1],
-  'Woodland': [38, 115, 0, 1],
-  'Managed Recreation/Sport': [85, 255, 0, 1],
-  'Amenity Water': [0, 112, 255, 1],
-  'Inland Water': [0, 38, 115, 1],
+  '1': [104, 104, 104, 1],
+  '2': [0, 112, 255, 0.5],
+  '3': [230, 152, 0, 1],
+  '4': [0, 112, 255, 1],
 };
 
 const style = new Style({
@@ -34,61 +27,59 @@ const style = new Style({
   }),
 });
 
-const parcelSourceSCC = new VectorSource({
-  format: new GeoJSON(),
-  loader: (
-    extent: Extent,
-    _resolution: number,
-    projection: Projection,
-    success,
-    failure
-  ) => {
-     const proj = projection.getCode();
-     const app_token = 'yqzKRsFoPdg87PUFzboWk2rSi';
-     const url_base = 'https://data.sccgov.org/resource/2bmn-3ayc.geojson'
-     const field = 'the_geom';
-     const lat = 37.4;
-     const lng = -122.08;
-     const meters = 808;
-     const url = `${url_base}?$where=within_circle(${field},${lat},${lng},${meters})`;
-     console.log(url);
-     const xhr = new XMLHttpRequest();
-     xhr.open('GET', url);
-     xhr.setRequestHeader('X-App-Token', app_token);
-     const onError = function() {
-       parcelSourceSCC.removeLoadedExtent(extent);
-       failure && failure();
-     }
-     xhr.onerror = onError;
-     xhr.onload = function() {
-       if (xhr.status == 200) {
-         const format = parcelSourceSCC.getFormat();
-         if (format) {
-           const respObj = JSON.parse(xhr.responseText);
-           const fromProj = format.readProjection(respObj);
+const wkt = new WKT();
+
+const parcelSourceSCC = (geom: Geometry): VectorSource => {
+  const src = new VectorSource({
+    format: new GeoJSON(),
+    loader: (
+      extent: Extent,
+      _resolution: number,
+      projection: Projection,
+      success,
+      failure
+    ) => {
+       const proj = projection.getCode();
+       const app_token = 'yqzKRsFoPdg87PUFzboWk2rSi';
+       const url_base = 'https://data.sccgov.org/resource/2bmn-3ayc.geojson'
+       const field = 'the_geom';
+       const poly = wkt.writeGeometry(geom.transform(projection, 'EPSG:4326'));
+       // "%27" is a single quote - required for WKT parameters
+       const url = `${url_base}?$limit=5000&$where=intersects(${field},%27${poly}%27)&$order=objectid`;
+       console.log(url);
+       const promise = fetch(
+         url,
+         { headers: {'X-App-Token': app_token} }
+       ).then(
+         (response) => response.json()
+       ).then(
+         (respObj) => {
+           const format = src.getFormat();
+           const fromProj = format?.readProjection(respObj);
            const features: Array<Feature> = [];
-           format.readFeatures(respObj).forEach((feature) => {
+           format?.readFeatures(respObj).forEach((feature) => {
              feature.getGeometry()?.transform(fromProj, proj);
              features.push(feature);
+             src.addFeature(feature);
            });
-           parcelSourceSCC.addFeatures(features);
-           console.log('got features', features);
            success && success(features);
-         }
-       } else {
-         onError();
-       }
-     }
-     xhr.send();
-  },
-  strategy: tileStrategy(
-    createXYZ({
-      tileSize: 512,
-    }),
-  ),
-});
+       }).catch((err) => {
+         console.log('fetch error', err);
+         src.removeLoadedExtent(extent);
+         failure && failure();
+       });
+       return promise;
+    },
+    strategy: tileStrategy(
+      createXYZ({
+        tileSize: 512,
+      }),
+    ),
+  });
+  return src;
+};
 
-const stationAreaSource = new VectorSource({
+const mvZoningSource = new VectorSource({
   format: new EsriJSON(),
   url: function (_extent, _resolution, projection) {
     // ArcGIS Server only wants the numeric portion of the projection ID.
@@ -96,7 +87,9 @@ const stationAreaSource = new VectorSource({
       .getCode()
       .split(/:(?=\d+$)/)
       .pop();
-    const url = 'https://services3.arcgis.com/i2dkYWmb4wHvYPda/arcgis/rest/services/Jurisdiction_Corridor_Buffers_v3a/FeatureServer/4/query?where=1%3D1&outFields=*&outSR='+ srid + '&f=json';
+    const urlBase = 'https://maps.mountainview.gov/arcgis/rest/services/Public/ZoningDistrict/FeatureServer'
+    const url = `${urlBase}/0/query?where=1%3D1&outFields=*&outSR=${srid}&f=json`;
+    console.log('z', url);
     return url;
   },
   strategy: tileStrategy(
@@ -104,19 +97,53 @@ const stationAreaSource = new VectorSource({
       tileSize: 512,
     }),
   ),
-  attributions:
-    '[DRAFT] Transit-Oriented Communities Policy Areas. MTC/ABAG'
 });
 
-export const sccParcelsLayer = new VectorLayer({
-  source: parcelSourceSCC,
+const mtcSource = (serviceName: string): VectorSource => {
+  return new VectorSource({
+    format: new EsriJSON(),
+    url: function (_extent, _resolution, projection) {
+      // ArcGIS Server only wants the numeric portion of the projection ID.
+      const srid = projection
+        .getCode()
+        .split(/:(?=\d+$)/)
+        .pop();
+      const url = `https://services3.arcgis.com/i2dkYWmb4wHvYPda/arcgis/rest/services/${serviceName}/FeatureServer/4/query?where=1%3D1&outFields=*&outSR=${srid}&f=json`;
+      console.log(url);
+      return url;
+    },
+    strategy: tileStrategy(
+      createXYZ({
+        tileSize: 512,
+      }),
+    ),
+    attributions:
+      '[DRAFT] Transit-Oriented Communities Policy Areas. MTC/ABAG'
+  });
+};
+
+export const updateParcelSource = (coords: [number,number][]) => {
+  parcelsLayer.setSource(parcelSourceSCC(coords));
+};
+
+export const parcelsLayer = new VectorLayer({
+  opacity: 0.7,
+});
+
+export const mvZoningLayer = new VectorLayer({
+  source: mvZoningSource,
+  opacity: 0.5
+})
+
+export const stationPointLayer = new VectorLayer({
+  source: mtcSource('TOC_Transit_Stations_v0m'),
   opacity: 0.7,
 });
 
 export const stationAreaLayer = new VectorLayer({
-  source: stationAreaSource,
+  source: mtcSource('Jurisdiction_Corridor_Buffers_v3a'),
   style: function (feature) {
-    const classify = feature.get('LU_2014');
+    const classify = feature.get('service_tier');
     const color = fillColors[classify] || [0, 0, 0, 0];
     style.getFill()?.setColor(color);
     return style;

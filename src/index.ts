@@ -1,18 +1,51 @@
 import Map from 'ol/Map.js';
 import View from 'ol/View.js';
-import {fromLonLat} from 'ol/proj.js';
-import { Pixel } from 'ol/pixel';
-import MapEvent from 'ol/MapEvent.js';
+import { fromLonLat } from 'ol/proj.js';
+import Feature from 'ol/Feature.js';
+import Select from 'ol/interaction/Select.js';
+import MapBrowserEvent from 'ol/MapEvent.js';
+import { click } from 'ol/events/condition.js';
+import { Fill, Stroke, Style } from 'ol/style.js';
 import van from 'vanjs-core';
-import 'assets/style.css';
 
-import { mapLayer, stationAreaLayer, sccParcelsLayer } from 'layers';
+import 'assets/style.css';
+import * as layers from 'layers';
 
 const { div } = van.tags;
 
+const stationAreaSelect = new Select({
+  condition: click,
+  style: (_feature) => new Style({
+    fill: new Fill({color: 'rgba(199, 212, 222, 0.7)'}),
+    stroke: new Stroke({
+      color: 'rgba(255, 255, 255, 0.7)',
+      width: 2,
+    }),
+  })
+});
+
 const setup = (mapEl: HTMLElement, infoEl: HTMLElement) => {
+  const infoState = {
+    id: van.state(0),
+    tier: van.state(''),
+    corridor: van.state(''),
+  };
+
+  van.add(
+    infoEl, div(
+      div("id", infoState.id),
+      div("tier", infoState.tier),
+      div("corridor", infoState.corridor)
+    )
+  );
+
   const map = new Map({
-    layers: [mapLayer, sccParcelsLayer, stationAreaLayer],
+    layers: [
+      layers.mapLayer,
+      layers.parcelsLayer,
+      layers.mvZoningLayer,
+      layers.stationAreaLayer
+    ],
     target: mapEl,
     view: new View({
       center: fromLonLat([-122.1, 37.4]),
@@ -20,42 +53,27 @@ const setup = (mapEl: HTMLElement, infoEl: HTMLElement) => {
     }),
   });
 
-  const displayFeatureInfo = function (pixel: Pixel) {
-    const feature = map.forEachFeatureAtPixel(pixel, function (feature) {
-      return feature;
-    });
-    const target = map.getTarget() as HTMLElement;
+  const displayFeatureInfo = function (feature: Feature) {
     if (feature) {
-      const info =
-        '2014 Land Use: ' +
-        feature.get('LU_2014') +
-        '<br>1965 Land Use: ' +
-        feature.get('LU_1965');
-      infoEl.innerHTML = info;
-      if (target) {
-        target.style.cursor = 'pointer';
-      }
-    } else {
-      infoEl.innerHTML = '&nbsp;<br>&nbsp;';
-      if (target) {
-        target.style.cursor = 'pointer';
-      }
+      console.log(feature);
+      infoState.id.val = feature.get("OBJECTID");
+      infoState.tier.val = feature.get("service_tier");
+      infoState.corridor.val = feature.get("corridor_id");
+      layers.updateParcelSource(feature.get("geometry"));
     }
   };
 
-  map.on(['click', 'pointermove'], (evt: MapEvent) => {
-    if (evt.dragging) {
-      return;
-    }
-    displayFeatureInfo(evt.pixel);
+  map.addInteraction(stationAreaSelect);
+  stationAreaSelect.on("select", (evt: MapBrowserEvent) => {
+    displayFeatureInfo(evt.selected[0]);
   });
 };
 
 const main = () => {
-  const mapEl = div();
-  const infoEl = div();
-  van.add(document.body, mapEl);
-  van.add(document.body, infoEl);
+  const mapEl = div({id: "map"});
+  const infoEl = div({id: "info"});
+  const appEl = div({id: "app"}, mapEl, infoEl);
+  van.add(document.body, appEl);
   setup(mapEl, infoEl);
 };
 

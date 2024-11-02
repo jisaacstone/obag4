@@ -1,4 +1,7 @@
-div {
+#app {
+  display: flex;
+}
+#map {
 	width: 50%;
 	height: 50rem;
 }
