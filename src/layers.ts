@@ -29,7 +29,14 @@ const style = new Style({
 
 const wkt = new WKT();
 
-const parcelSourceSCC = (geom: Geometry): VectorSource => {
+const parcelSourceCache: {[index: string]: VectorSource} = {};
+
+const parcelSourceSCC = (id: string, geom: Geometry): VectorSource => {
+  const cached = parcelSourceCache[id];
+  if (cached) {
+      return cached;
+  }
+  let loading = false;
   const src = new VectorSource({
     format: new GeoJSON(),
     loader: (
@@ -39,36 +46,40 @@ const parcelSourceSCC = (geom: Geometry): VectorSource => {
       success,
       failure
     ) => {
-       const proj = projection.getCode();
-       const app_token = 'yqzKRsFoPdg87PUFzboWk2rSi';
-       const url_base = 'https://data.sccgov.org/resource/2bmn-3ayc.geojson'
-       const field = 'the_geom';
-       const poly = wkt.writeGeometry(geom.transform(projection, 'EPSG:4326'));
-       // "%27" is a single quote - required for WKT parameters
-       const url = `${url_base}?$limit=5000&$where=intersects(${field},%27${poly}%27)&$order=objectid`;
-       console.log(url);
-       const promise = fetch(
-         url,
-         { headers: {'X-App-Token': app_token} }
-       ).then(
-         (response) => response.json()
-       ).then(
-         (respObj) => {
-           const format = src.getFormat();
-           const fromProj = format?.readProjection(respObj);
-           const features: Array<Feature> = [];
-           format?.readFeatures(respObj).forEach((feature) => {
-             feature.getGeometry()?.transform(fromProj, proj);
-             features.push(feature);
-             src.addFeature(feature);
-           });
-           success && success(features);
-       }).catch((err) => {
-         console.log('fetch error', err);
-         src.removeLoadedExtent(extent);
-         failure && failure();
-       });
-       return promise;
+      if (loading) { return; }
+      loading = true;
+      const proj = projection.getCode();
+      const app_token = 'yqzKRsFoPdg87PUFzboWk2rSi';
+      const url_base = 'https://data.sccgov.org/resource/2bmn-3ayc.geojson'
+      const field = 'the_geom';
+      const poly = wkt.writeGeometry(geom.clone().transform(projection, 'EPSG:4326'));
+      // "%27" is a single quote - required for WKT parameters
+      const url = `${url_base}?$limit=5000&$where=intersects(${field},%27${poly}%27)&$order=objectid`;
+      console.log(url);
+      const promise = fetch(
+        url,
+        { headers: {'X-App-Token': app_token} }
+      ).then(
+        (response) => response.json()
+      ).then(
+        (respObj) => {
+          const format = src.getFormat();
+          const fromProj = format?.readProjection(respObj);
+          const features: Array<Feature> = [];
+          format?.readFeatures(respObj).forEach((feature) => {
+            feature.getGeometry()?.transform(fromProj, proj);
+            features.push(feature);
+            src.addFeature(feature);
+          });
+          success && success(features);
+      }).catch((err) => {
+        console.log('fetch error', err);
+        src.removeLoadedExtent(extent);
+        failure && failure();
+      }).finally(() => {
+        loading = false;
+      });
+      return promise;
     },
     strategy: tileStrategy(
       createXYZ({
@@ -76,6 +87,7 @@ const parcelSourceSCC = (geom: Geometry): VectorSource => {
       }),
     ),
   });
+  parcelSourceCache[id] = src;
   return src;
 };
 
@@ -122,16 +134,18 @@ const mtcSource = (serviceName: string): VectorSource => {
   });
 };
 
-export const updateParcelSource = (coords: [number,number][]) => {
-  parcelsLayer.setSource(parcelSourceSCC(coords));
+export const updateParcelSource = (id: string, geom: Geometry) => {
+  parcelsLayer.setSource(parcelSourceSCC(id, geom));
 };
 
 export const parcelsLayer = new VectorLayer({
   opacity: 0.7,
+  className: 'parcelsLayer',
 });
 
 export const mvZoningLayer = new VectorLayer({
   source: mvZoningSource,
+  className: 'zoningLayer',
   opacity: 0.5
 })
 
@@ -142,6 +156,7 @@ export const stationPointLayer = new VectorLayer({
 
 export const stationAreaLayer = new VectorLayer({
   source: mtcSource('Jurisdiction_Corridor_Buffers_v3a'),
+  className: 'stationAreaLayer',
   style: function (feature) {
     const classify = feature.get('service_tier');
     const color = fillColors[classify] || [0, 0, 0, 0];
