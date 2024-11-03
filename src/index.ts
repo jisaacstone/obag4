@@ -5,26 +5,20 @@ import Feature from 'ol/Feature.js';
 import Select from 'ol/interaction/Select.js';
 import SelectEvent from 'ol/MapEvent.js';
 import { click } from 'ol/events/condition.js';
-import { Fill, Stroke, Style } from 'ol/style.js';
 import van from 'vanjs-core';
 
 import 'assets/style.css';
 import * as layers from 'layers';
+import * as styles from 'styles';
 
 const { div } = van.tags;
 
 const stationAreaSelect = new Select({
   condition: click,
   layers: [ layers.stationAreaLayer ],
-  style: (_feature, layer) => {
-    console.log('stile', layer);
-    return new Style({
-      fill: new Fill({color: 'rgba(199, 212, 222, 0.7)'}),
-      stroke: new Stroke({
-        color: 'rgba(255, 255, 255, 0.7)',
-        width: 2,
-      }),
-    });
+  style: (a, b) => {
+    console.log('stile', a, b);
+    return styles.blackOutline;
   }
 });
 

@@ -11,6 +11,7 @@ import { tile as tileStrategy } from 'ol/loadingstrategy.js';
 import { Extent } from 'ol/extent.js';
 import Feature from 'ol/Feature.js';
 import Projection from 'ol/proj/Projection.js';
+import * as styles from 'styles';
 
 const fillColors: {[index: string]: number[]} = {
   '1': [104, 104, 104, 1],
@@ -146,7 +147,11 @@ export const parcelsLayer = new VectorLayer({
 export const mvZoningLayer = new VectorLayer({
   source: mvZoningSource,
   className: 'zoningLayer',
-  opacity: 0.5
+  opacity: 0.5,
+  style: (feature) => {
+    console.log(feature.get('ZONECLASS'));
+    return styles.zones[feature.get('ZONECLASS')] || styles.grey;
+  }
 })
 
 export const stationPointLayer = new VectorLayer({
