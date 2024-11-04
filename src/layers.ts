@@ -7,7 +7,7 @@ import WKT from 'ol/format/WKT.js';
 import { Fill, Stroke, Style } from 'ol/style.js';
 import { Tile as TileLayer, Vector as VectorLayer} from 'ol/layer.js';
 import { createXYZ } from 'ol/tilegrid.js';
-import { tile as tileStrategy } from 'ol/loadingstrategy.js';
+import { tile as tileStrategy, all as allStrategy } from 'ol/loadingstrategy.js';
 import { Extent } from 'ol/extent.js';
 import Feature from 'ol/Feature.js';
 import Projection from 'ol/proj/Projection.js';
@@ -30,13 +30,8 @@ const style = new Style({
 
 const wkt = new WKT();
 
-const parcelSourceCache: {[index: string]: VectorSource} = {};
-
 const parcelSourceSCC = (id: string, geom: Geometry): VectorSource => {
-  const cached = parcelSourceCache[id];
-  if (cached) {
-      return cached;
-  }
+  let loaded = false;
   let loading = false;
   const src = new VectorSource({
     format: new GeoJSON(),
@@ -48,6 +43,7 @@ const parcelSourceSCC = (id: string, geom: Geometry): VectorSource => {
       failure
     ) => {
       if (loading) { return; }
+      if (loaded) { success && success([]) }
       loading = true;
       const proj = projection.getCode();
       const app_token = 'yqzKRsFoPdg87PUFzboWk2rSi';
@@ -56,7 +52,6 @@ const parcelSourceSCC = (id: string, geom: Geometry): VectorSource => {
       const poly = wkt.writeGeometry(geom.clone().transform(projection, 'EPSG:4326'));
       // "%27" is a single quote - required for WKT parameters
       const url = `${url_base}?$limit=5000&$where=intersects(${field},%27${poly}%27)&$order=objectid`;
-      console.log(url);
       const promise = fetch(
         url,
         { headers: {'X-App-Token': app_token} }
@@ -72,6 +67,7 @@ const parcelSourceSCC = (id: string, geom: Geometry): VectorSource => {
             features.push(feature);
             src.addFeature(feature);
           });
+          loaded = true;
           success && success(features);
       }).catch((err) => {
         console.log('fetch error', err);
@@ -82,13 +78,8 @@ const parcelSourceSCC = (id: string, geom: Geometry): VectorSource => {
       });
       return promise;
     },
-    strategy: tileStrategy(
-      createXYZ({
-        tileSize: 512,
-      }),
-    ),
+    strategy: allStrategy,
   });
-  parcelSourceCache[id] = src;
   return src;
 };
 
@@ -102,14 +93,9 @@ const mvZoningSource = new VectorSource({
       .pop();
     const urlBase = 'https://maps.mountainview.gov/arcgis/rest/services/Public/ZoningDistrict/FeatureServer'
     const url = `${urlBase}/0/query?where=1%3D1&outFields=*&outSR=${srid}&f=json`;
-    console.log('z', url);
     return url;
   },
-  strategy: tileStrategy(
-    createXYZ({
-      tileSize: 512,
-    }),
-  ),
+  strategy: allStrategy,
 });
 
 const mtcSource = (serviceName: string): VectorSource => {
@@ -122,7 +108,6 @@ const mtcSource = (serviceName: string): VectorSource => {
         .split(/:(?=\d+$)/)
         .pop();
       const url = `https://services3.arcgis.com/i2dkYWmb4wHvYPda/arcgis/rest/services/${serviceName}/FeatureServer/4/query?where=1%3D1&outFields=*&outSR=${srid}&f=json`;
-      console.log(url);
       return url;
     },
     strategy: tileStrategy(
@@ -142,14 +127,17 @@ export const updateParcelSource = (id: string, geom: Geometry) => {
 export const parcelsLayer = new VectorLayer({
   opacity: 0.7,
   className: 'parcelsLayer',
+  style: (feature) => {
+    //console.log('style', feature.getProperties());
+    return styles.zones[feature.get('zoneclass')] || styles.grey;
+  }
 });
 
 export const mvZoningLayer = new VectorLayer({
   source: mvZoningSource,
   className: 'zoningLayer',
-  opacity: 0.5,
+  opacity: 0.2,
   style: (feature) => {
-    console.log(feature.get('ZONECLASS'));
     return styles.zones[feature.get('ZONECLASS')] || styles.grey;
   }
 })

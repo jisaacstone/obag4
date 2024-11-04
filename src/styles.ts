@@ -16,15 +16,19 @@ export const grey = new Style({
   }),
 });
 
+const zo = new Stroke({color: [32, 20, 35]});
+
 export const zones: {[index: string]: Style} = {
-  "R1": new Style({ fill: new Fill({ color: [237, 237, 18] }) }),
-  "R2": new Style({ fill: new Fill({ color: [237, 200, 28] }) }),
-  "R3": new Style({ fill: new Fill({ color: [237, 187, 32] }) }),
-  "RMH": new Style({ fill: new Fill({ color: [237, 150, 18] }) }),
-  "CRA": new Style({ fill: new Fill({ color: [237, 15, 18] }) }),
-  "CN": new Style({ fill: new Fill({ color: [217, 50, 18] }) }),
-  "CS": new Style({ fill: new Fill({ color: [247, 5, 38] }) }),
-  "CO": new Style({ fill: new Fill({ color: [217, 5, 68] }) }),
-  "PF": new Style({ fill: new Fill({ color: [17, 245, 18] }) }),
-  "P": new Style({ fill: new Fill({ color: [237, 18, 237] }) }),
+  "R1": new Style({ stroke: zo, fill: new Fill({ color: [237, 237, 18] }) }),
+  "R2": new Style({ stroke: zo, fill: new Fill({ color: [237, 200, 28] }) }),
+  "R3": new Style({ stroke: zo, fill: new Fill({ color: [237, 187, 32] }) }),
+  "RMH": new Style({ stroke: zo, fill: new Fill({ color: [237, 150, 18] }) }),
+  "CRA": new Style({ stroke: zo, fill: new Fill({ color: [237, 15, 18] }) }),
+  "CN": new Style({ stroke: zo, fill: new Fill({ color: [217, 50, 18] }) }),
+  "CS": new Style({ stroke: zo, fill: new Fill({ color: [247, 5, 38] }) }),
+  "CO": new Style({ stroke: zo, fill: new Fill({ color: [217, 5, 68] }) }),
+  "PF": new Style({ stroke: zo, fill: new Fill({ color: [17, 245, 18] }) }),
+  "P": new Style({ stroke: zo, fill: new Fill({ color: [237, 18, 237] }) }),
+  "ML": new Style({ stroke: zo, fill: new Fill({ color: [160, 150, 170] }) }),
+  "MM": new Style({ stroke: zo, fill: new Fill({ color: [160, 100, 200] }) }),
 };
