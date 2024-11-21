@@ -5,3 +5,14 @@
 	width: 50%;
 	height: 50rem;
 }
+#info {
+  width: 50%;
+}
+.zoneInfoList {
+  display: flex;
+}
+.zoneInfoList div {
+  width: 30%;
+  padding: 1%;
+  border: 1px solid lightskyblue;
+}

@@ -15,6 +15,13 @@ export const grey = new Style({
     width: 1,
   }),
 });
+export const hilite = new Style({
+  fill: new Fill({color: [244, 244, 244, 1]}),
+  stroke: new Stroke({
+    color: [13, 10, 11, 1],
+    width: 3,
+  }),
+});
 
 const zo = new Stroke({color: [32, 20, 35]});
 

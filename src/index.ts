@@ -10,7 +10,6 @@ import { VectorSourceEvent } from 'ol/source/Vector.js';
 import { click } from 'ol/events/condition.js';
 import { MultiPolygon } from 'ol/geom.js';
 import van from 'vanjs-core';
-import turf from 'turfjs';
 
 import 'assets/style.css';
 import * as layers from 'layers';
@@ -22,6 +21,11 @@ const stationAreaSelect = new Select({
   condition: click,
   layers: [ layers.stationAreaLayer ],
   style: () => styles.blackOutline
+});
+
+const hoverSelect = new Select({
+  layers: [ layers.mvZoningLayer ],
+  style: () => styles.hilite
 });
 
 const zoomToFeature = (map: Map, feature: Feature) => {
@@ -39,7 +43,7 @@ const setup = (mapEl: HTMLElement, infoEl: HTMLElement) => {
     corridor: van.state(''),
   };
 
-  const zoneParcels: {[index: string]: string[]} = {};
+  const zoneParcels: {[index: string]: { ids: string[], area: number, zones: Set<Feature> }} = {};
   const zoneInfo = div({"class": "info"});
 
   van.add(
@@ -78,12 +82,24 @@ const setup = (mapEl: HTMLElement, infoEl: HTMLElement) => {
 
   const allParcelsAdded = ({ features }: VectorSourceEvent) => {
     if (!features || !features.length) { return }
-    console.log('qq', features.length, zoneInfo);
-    const list = ul();
-    for (const zone in zoneParcels) {
-      van.add(list, li(`${zone} - ${zoneParcels[zone].length}`));
+    const list = ul(li({"class": "zoneInfoList"}, div("Zone"), div("Parcels"), div("Area")));
+    const sorted = Object.entries(zoneParcels)
+      .sort(([,{area: a1}], [,{ area: a2 }]) => a2 - a1);
+    for (const [zone, {ids, area, zones}] of sorted) {
+      const row = li(
+        {"class": "zoneInfoList"},
+        div(zone),
+        div(ids.length),
+        div(Math.round(area))
+      );
+      row.onmouseenter = () => {
+        console.log('mouseover', row, zone, zones);
+        hoverSelect.getFeatures().clear();
+        hoverSelect.getFeatures().extend(Array.from(zones));
+      };
+      van.add(list, row);
     };
-    van.add(zoneInfo, list);
+    zoneInfo.replaceChildren(list);
   };
 
   const parcelAdded = ({ feature }: VectorSourceEvent) => {
@@ -102,14 +118,17 @@ const setup = (mapEl: HTMLElement, infoEl: HTMLElement) => {
       feature?.set('zoneclass', zf.get('ZONECLASS'));
       const pars = zoneParcels[zone];
       if (pars) {
-        pars.push(id);
+        pars.ids.push(id);
+        pars.zones.add(zf);
+        pars.area += geom.getArea();
       } else {
-        zoneParcels[zone] = [ id ];
+        zoneParcels[zone] = { ids: [id], area: geom.getArea(), zones: new Set([zf]) };
       }
     }
   };
 
   map.addInteraction(stationAreaSelect);
+  map.addInteraction(hoverSelect);
   layers.parcelsLayer.on("change:source", (evt) => {
     evt.target.get("source").on(VectorEventType.ADDFEATURE, parcelAdded);
     evt.target.get("source").on(VectorEventType.FEATURESLOADEND, allParcelsAdded);
