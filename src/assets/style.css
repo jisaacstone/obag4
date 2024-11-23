@@ -12,7 +12,8 @@
   display: flex;
 }
 .zoneInfoList div {
-  width: 30%;
   padding: 1%;
+  flex-grow: 1;
+  flex-basis: 1px;
   border: 1px solid lightskyblue;
 }

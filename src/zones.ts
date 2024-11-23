@@ -1,3 +1,4 @@
+import { click } from 'ol/events/condition.js';
 import { MultiPolygon } from 'ol/geom.js';
 import { VectorSourceEvent } from 'ol/source/Vector.js';
 import Feature from 'ol/Feature.js';
@@ -9,68 +10,83 @@ import van from 'vanjs-core';
 import * as styles from 'styles';
 import * as layers from 'layers';
 
-const { div, ul, li, select, input } = van.tags;
+const { div, ul, li, h2, input, button } = van.tags;
+const resOfficeZones: Set<string> = new Set();
 const zoneParcels: {[index: string]: { parcels: Feature[], area: number, zones: Set<Feature> }} = {};
 const zoneInfo = div({"class": "info"});
+const totalParcels = van.state(0);
+const totalArea = van.state(0);
+const roundedArea = van.derive(() => Math.round(totalArea.val));
 const hoverSelect = new Select({
   layers: [ layers.mvZoningLayer ],
   style: () => styles.hilite
 });
-const disabledSelect = new Select({
+const enabledSelect = new Select({
+  condition: click,
   layers: [ layers.parcelsLayer ],
-  style: () => styles.disabled
+  style: (feature) => styles.zones[feature.get('zoneclass')] || styles.grey
 });
 
-export const setup = (infoEl: HTMLElement, map: Map) => {
-  map.addInteraction(hoverSelect);
-  layers.parcelsLayer.on("change:source", (evt) => {
-    evt.target.get("source").on(VectorEventType.ADDFEATURE, parcelAdded);
-    evt.target.get("source").on(VectorEventType.FEATURESLOADEND, allParcelsAdded);
-  });
-  van.add(
-    infoEl, div(
-      zoneInfo
-    )
-  );
-};
-
 const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feature>): HTMLLIElement => {
+  console.log(zones);
   const inp = input({
     type: "checkbox",
     oninput: () => {
-      disabledSelect.getFeatures().extend(parcels);
+      const selected = enabledSelect.getFeatures();
+      if (inp.checked) {
+        selected.extend(parcels);
+        resOfficeZones.add(zone);
+        totalParcels.val += parcels.length;
+        totalArea.val += area;
+      } else {
+        parcels.forEach((parcel) => selected.remove(parcel));
+        resOfficeZones.delete(zone);
+        totalParcels.val -= parcels.length;
+        totalArea.val -= area;
+      }
     }
   });
-  const sel = select();
+  const pp = Array.from(zones)[0].get("PRECISEPLANLINK") || "";
+  console.log(pp);
+  const lnk = document.createElement('div');
+  lnk.innerHTML += `${pp}`;
+  const el = lnk.getElementsByTagName('a');
+  console.log(el);
   const row = li(
     {
       class: "zoneInfoList",
       onmouseenter: () => hoverSelect.getFeatures().extend(Array.from(zones)),
       onmouseleave: () => hoverSelect.getFeatures().clear()
     },
-    div(zone),
-    div(parcels.length),
-    div(Math.round(area)),
     inp,
-    sel
+    div(zone),
   );
+  if (el.length > 0) {
+    row.appendChild(div(el[0]));
+  }
   return row;
 };
 
 const allParcelsAdded = ({ features }: VectorSourceEvent) => {
   if (!features || !features.length) { return }
-  const list = ul(li({"class": "zoneInfoList"}, div("Zone"), div("Parcels"), div("Area")));
+  const title = h2({"class": "title"}, "Which zones allow residential, office, or mixed use?");
+  const info = div({"class": "runningTotal"}, div("Parcels: ", totalParcels), div("Area: ", roundedArea));
+  const list = ul(li({"class": "zoneInfoList"}, div("Zone")));
+  const btn = button("Next");
   const sorted = Object.entries(zoneParcels)
     .sort(([,{area: a1}], [,{ area: a2 }]) => a2 - a1);
   for (const [zone, {parcels, area, zones}] of sorted) {
     const row = makeRow(zone, parcels, area, zones);
     van.add(list, row);
   };
-  zoneInfo.replaceChildren(list);
+  zoneInfo.replaceChildren(title, info, list, btn);
 };
 
 const parcelAdded = ({ feature }: VectorSourceEvent) => {
-  const geom: MultiPolygon = feature?.get('geometry');
+  if (feature === undefined) {
+    return;
+  }
+  const geom: MultiPolygon = feature.get('geometry');
   if (geom) {
     const points = geom.getInteriorPoints()
     const features = layers.mvZoningLayer.getSource()?.getFeaturesAtCoordinate(points.getFirstCoordinate());
@@ -80,8 +96,8 @@ const parcelAdded = ({ feature }: VectorSourceEvent) => {
     }
     const zf = features[0];
     const zone: string = zf.get('ZONELABEL');
-    feature?.set('zone', zone);
-    feature?.set('zoneclass', zf.get('ZONECLASS'));
+    feature.set('zone', zone);
+    feature.set('zoneclass', zf.get('ZONECLASS'));
     const pars = zoneParcels[zone];
     if (pars) {
       pars.parcels.push(feature);
@@ -91,4 +107,18 @@ const parcelAdded = ({ feature }: VectorSourceEvent) => {
       zoneParcels[zone] = { parcels: [feature], area: geom.getArea(), zones: new Set([zf]) };
     }
   }
+};
+
+export const setup = (infoEl: HTMLElement, map: Map) => {
+  map.addInteraction(hoverSelect);
+  map.addInteraction(enabledSelect);
+  layers.parcelsLayer.on("change:source", (evt) => {
+    evt.target.get("source").on(VectorEventType.ADDFEATURE, parcelAdded);
+    evt.target.get("source").on(VectorEventType.FEATURESLOADEND, allParcelsAdded);
+  });
+  van.add(
+    infoEl, div(
+      zoneInfo
+    )
+  );
 };

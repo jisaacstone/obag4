@@ -127,19 +127,14 @@ export const updateParcelSource = (id: string, geom: Geometry) => {
 export const parcelsLayer = new VectorLayer({
   opacity: 0.7,
   className: 'parcelsLayer',
-  style: (feature) => {
-    //console.log('style', feature.getProperties());
-    return styles.zones[feature.get('zoneclass')] || styles.grey;
-  }
+  style: () => styles.grey
 });
 
 export const mvZoningLayer = new VectorLayer({
   source: mvZoningSource,
   className: 'zoningLayer',
   opacity: 0.2,
-  style: (feature) => {
-    return styles.zones[feature.get('ZONECLASS')] || styles.grey;
-  }
+  style: (feature) => styles.zones[feature.get('ZONECLASS')] || styles.grey
 })
 
 export const stationPointLayer = new VectorLayer({

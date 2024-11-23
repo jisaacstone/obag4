@@ -22,8 +22,15 @@ export const hilite = new Style({
     width: 3,
   }),
 });
+export const disabled = new Style({
+  fill: new Fill({color: [190, 190, 191, 0.6]}),
+  stroke: new Stroke({
+    color: [90, 91, 90, 0.7],
+    width: 1,
+  }),
+});
 
-const zo = new Stroke({color: [32, 20, 35]});
+const zo = new Stroke({color: [232, 220, 235], width: 2});
 
 export const zones: {[index: string]: Style} = {
   "R1": new Style({ stroke: zo, fill: new Fill({ color: [237, 237, 18] }) }),
