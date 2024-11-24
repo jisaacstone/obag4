@@ -9,6 +9,7 @@ import van from 'vanjs-core';
 
 import * as styles from 'styles';
 import * as layers from 'layers';
+import * as select_parcels from 'select_parcels';
 
 const { div, ul, li, h2, input, button } = van.tags;
 const resOfficeZones: Set<string> = new Set();
@@ -46,12 +47,11 @@ const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feat
       }
     }
   });
+  // For some reason just setting innerHTML does not work
   const pp = Array.from(zones)[0].get("PRECISEPLANLINK") || "";
-  console.log(pp);
   const lnk = document.createElement('div');
-  lnk.innerHTML += `${pp}`;
-  const el = lnk.getElementsByTagName('a');
-  console.log(el);
+  lnk.innerHTML = pp;
+  const el = div(lnk.getElementsByTagName('a')[0] || "")
   const row = li(
     {
       class: "zoneInfoList",
@@ -60,10 +60,8 @@ const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feat
     },
     inp,
     div(zone),
-  );
-  if (el.length > 0) {
-    row.appendChild(div(el[0]));
-  }
+    el,
+  )
   return row;
 };
 
@@ -72,9 +70,12 @@ const allParcelsAdded = ({ features }: VectorSourceEvent) => {
   const title = h2({"class": "title"}, "Which zones allow residential, office, or mixed use?");
   const info = div({"class": "runningTotal"}, div("Parcels: ", totalParcels), div("Area: ", roundedArea));
   const list = ul(li({"class": "zoneInfoList"}, div("Zone")));
-  const btn = button("Next");
+  const btn = button(
+    { onclick: () => select_parcels.setup(zoneInfo, resOfficeZones) },
+    "Next"
+  );
   const sorted = Object.entries(zoneParcels)
-    .sort(([,{area: a1}], [,{ area: a2 }]) => a2 - a1);
+    .sort(([za,], [zb,]) => za.localeCompare(zb));
   for (const [zone, {parcels, area, zones}] of sorted) {
     const row = makeRow(zone, parcels, area, zones);
     van.add(list, row);
