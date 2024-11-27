@@ -4,17 +4,21 @@
 .zoneInfoList {
   display: flex;
 }
-.zoneInfoList div {
+.zoneInfoList div, .zoneInfoList input {
   padding: 1%;
   flex-grow: 1;
   flex-basis: 1px;
-  border: 1px solid lightskyblue;
 }
-.zoneInfoList input {
-  padding: 1%;
-  flex-grow: 1;
-  flex-basis: 1px;
-  border: 1px solid forestgreen;
+.zoneInfoList > div {
+  border: 1px solid lightskyblue;
+  display: flex;
+}
+.zoneInfoList div.checks {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.checks div {
+  text-align: center;
 }
 @media (orientation: landscape) {
   #map {

@@ -10,9 +10,14 @@ import van from 'vanjs-core';
 import * as styles from 'styles';
 import * as layers from 'layers';
 import * as select_parcels from 'screens/select_parcels';
+import { ResOfficeZones } from 'types';
+import { nextPageButton } from 'screens/common';
 
-const { div, ul, li, h2, input, button } = van.tags;
-const resOfficeZones: Set<string> = new Set();
+const { div, ul, li, h2, input } = van.tags;
+const resOfficeZones: ResOfficeZones = {
+  res: new Set(),
+  office: new Set()
+}
 const zoneParcels: {[index: string]: { parcels: Feature[], area: number, zones: Set<Feature> }} = {};
 const zoneInfo = div({"class": "info"});
 const totalParcels = van.state(0);
@@ -28,25 +33,34 @@ const enabledSelect = new Select({
   style: (feature) => styles.zones[feature.get('zoneclass')] || styles.grey
 });
 
-const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feature>): HTMLLIElement => {
+const makeCheck = (zone: string, area: number, parcels: Feature[], bucket: Set<string>): HTMLInputElement => {
   const inp = input({
     type: "checkbox",
     oninput: () => {
       const selected = enabledSelect.getFeatures();
       if (inp.checked) {
-        selected.extend(parcels);
-        resOfficeZones.add(zone);
+        parcels.forEach((p) => {
+          if (selected.getArray().indexOf(p) === -1) {
+            selected.push(p);
+          }
+        });
+        bucket.add(zone);
         totalParcels.val += parcels.length;
         totalArea.val += area;
       } else {
         parcels.forEach((parcel) => selected.remove(parcel));
-        resOfficeZones.delete(zone);
+        bucket.delete(zone);
         totalParcels.val -= parcels.length;
         totalArea.val -= area;
       }
-      console.log('roz', resOfficeZones);
     }
   });
+  return inp;
+};
+
+const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feature>): HTMLLIElement => {
+  const hasOffice = makeCheck(zone, area, parcels, resOfficeZones.office);
+  const hasRes = makeCheck(zone, area, parcels, resOfficeZones.res);
   // For some reason just setting innerHTML does not work
   const pp = Array.from(zones)[0].get("PRECISEPLANLINK") || "";
   const lnk = document.createElement('div');
@@ -58,7 +72,7 @@ const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feat
       onmouseenter: () => hoverSelect.getFeatures().extend(Array.from(zones)),
       onmouseleave: () => hoverSelect.getFeatures().clear()
     },
-    inp,
+    div({class: "checks"}, hasOffice, hasRes),
     div(zone),
     el,
   )
@@ -69,11 +83,15 @@ const allParcelsAdded = ({ features }: VectorSourceEvent) => {
   if (!features || !features.length) { return }
   const title = h2({"class": "title"}, "Which zones allow residential, office, or mixed use?");
   const info = div({"class": "runningTotal"}, div("Parcels: ", totalParcels), div("Area: ", roundedArea));
-  const list = ul(li({"class": "zoneInfoList header"}, div(), div("Zone"), div("Details")));
-  const btn = button(
-    { onclick: () => select_parcels.render(zoneInfo, resOfficeZones) },
-    "Next"
+  const list = ul(
+    li(
+      {"class": "zoneInfoList header"},
+      div({class: "checks"}, div("Allows Office"), div("Allows Residential")),
+      div("Zone"),
+      div("Details")
+    )
   );
+  const btn = nextPageButton( () => select_parcels.render(zoneInfo, resOfficeZones) );
   const sorted = Object.entries(zoneParcels)
     .sort(([za,], [zb,]) => za.localeCompare(zb));
   for (const [zone, {parcels, area, zones}] of sorted) {
