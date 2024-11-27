@@ -11,7 +11,7 @@ import 'assets/style.css';
 
 import * as layers from 'layers';
 import * as styles from 'styles';
-import * as zones from 'zones';
+import * as zones from 'screens/choose_zones';
 
 const { div } = van.tags;
 
@@ -65,7 +65,7 @@ const main = () => {
   const appEl = div({id: "app"}, mapEl, infoEl);
   van.add(document.body, appEl);
   const map = setupMap(mapEl);
-  zones.setup(infoEl, map);
+  zones.render(infoEl, map);
 };
 
 // see if DOM is already available

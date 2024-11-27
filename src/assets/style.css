@@ -1,13 +1,6 @@
 #app {
   display: flex;
 }
-#map {
-	width: 50%;
-	height: 50rem;
-}
-#info {
-  width: 50%;
-}
 .zoneInfoList {
   display: flex;
 }
@@ -16,4 +9,30 @@
   flex-grow: 1;
   flex-basis: 1px;
   border: 1px solid lightskyblue;
+}
+.zoneInfoList input {
+  padding: 1%;
+  flex-grow: 1;
+  flex-basis: 1px;
+  border: 1px solid forestgreen;
+}
+@media (orientation: landscape) {
+  #map {
+    width: 50%;
+    height: 100vh;
+  }
+  #info {
+    width: 50%;
+    height: 100vh;
+    overflow-y: scroll;
+  }
+}
+@media (orientation: portrait) {
+  #map {
+    width: 100%;
+    height: 100vw;
+  }
+  #info {
+    width: 100%;
+  }
 }

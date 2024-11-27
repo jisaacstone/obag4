@@ -9,7 +9,7 @@ import van from 'vanjs-core';
 
 import * as styles from 'styles';
 import * as layers from 'layers';
-import * as select_parcels from 'select_parcels';
+import * as select_parcels from 'screens/select_parcels';
 
 const { div, ul, li, h2, input, button } = van.tags;
 const resOfficeZones: Set<string> = new Set();
@@ -29,7 +29,6 @@ const enabledSelect = new Select({
 });
 
 const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feature>): HTMLLIElement => {
-  console.log(zones);
   const inp = input({
     type: "checkbox",
     oninput: () => {
@@ -45,6 +44,7 @@ const makeRow = (zone: string, parcels: Feature[], area: number, zones: Set<Feat
         totalParcels.val -= parcels.length;
         totalArea.val -= area;
       }
+      console.log('roz', resOfficeZones);
     }
   });
   // For some reason just setting innerHTML does not work
@@ -69,9 +69,9 @@ const allParcelsAdded = ({ features }: VectorSourceEvent) => {
   if (!features || !features.length) { return }
   const title = h2({"class": "title"}, "Which zones allow residential, office, or mixed use?");
   const info = div({"class": "runningTotal"}, div("Parcels: ", totalParcels), div("Area: ", roundedArea));
-  const list = ul(li({"class": "zoneInfoList"}, div("Zone")));
+  const list = ul(li({"class": "zoneInfoList header"}, div(), div("Zone"), div("Details")));
   const btn = button(
-    { onclick: () => select_parcels.setup(zoneInfo, resOfficeZones) },
+    { onclick: () => select_parcels.render(zoneInfo, resOfficeZones) },
     "Next"
   );
   const sorted = Object.entries(zoneParcels)
@@ -110,7 +110,7 @@ const parcelAdded = ({ feature }: VectorSourceEvent) => {
   }
 };
 
-export const setup = (infoEl: HTMLElement, map: Map) => {
+export const render = (infoEl: HTMLElement, map: Map) => {
   map.addInteraction(hoverSelect);
   map.addInteraction(enabledSelect);
   layers.parcelsLayer.on("change:source", (evt) => {
